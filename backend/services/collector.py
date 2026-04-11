@@ -5,43 +5,47 @@ from models.game import Game
 STEAMSPY = "https://steamspy.com/api.php"
 
 
+# =========================
+# HTTP FETCH
+# =========================
+def fetch_json(params):
+    try:
+        res = requests.get(STEAMSPY, params=params, timeout=30)
+        return res.json()
+    except Exception as e:
+        print(f"❌ Request failed: {e}")
+        return {}
+
+
 def fetch_top():
-    return requests.get(
-        STEAMSPY,
-        params={"request": "top100in2weeks"},
-        timeout=30
-    ).json()
+    return fetch_json({"request": "top100in2weeks"})
 
 
 def fetch_by_genre(genre, pages):
     results = {}
 
     for page in range(pages):
-        res = requests.get(
-            STEAMSPY,
-            params={
-                "request": "genre",
-                "genre": genre,
-                "page": page
-            },
-            timeout=30
-        ).json()
+        data = fetch_json({
+            "request": "genre",
+            "genre": genre,
+            "page": page
+        })
 
-        if res:
-            results.update(res)
+        if data:
+            results.update(data)
 
     return results
 
 
-def is_real_game(game):
+# =========================
+# FILTER
+# =========================
+def is_valid_game(game):
     name = (game.get("name") or "").lower()
 
-    junk = [
-        "server", "tool", "sdk", "soundtrack",
-        "video", "demo", "dlc", "trailer"
-    ]
+    blacklist = ["demo", "dlc", "soundtrack", "trailer", "tool", "sdk"]
 
-    if any(j in name for j in junk):
+    if any(x in name for x in blacklist):
         return False
 
     owners = game.get("owners") or ""
@@ -51,40 +55,55 @@ def is_real_game(game):
     return True
 
 
+# =========================
+# COLLECTOR
+# =========================
 def run_collector(max_games=30000, pages_per_genre=3):
+
+    print("🚀 COLLECTOR START")
+
     db = SessionLocal()
 
-    all_games = {}
+    games = {}
 
-    # TOP
-    all_games.update(fetch_top())
+    # 1. TOP GAMES
+    print("🔥 fetching TOP...")
+    games.update(fetch_top())
 
-    # GENRES
+    # 2. GENRES
     genres = ["action", "rpg", "indie", "simulation", "strategy"]
 
     for g in genres:
-        data = fetch_by_genre(g, pages=pages_per_genre)
-        all_games.update(data)
+        print(f"📊 fetching {g}...")
+        data = fetch_by_genre(g, pages_per_genre)
+        games.update(data)
 
-    print(f"RAW SIZE: {len(all_games)}")
+    print(f"📦 RAW SIZE: {len(games)}")
 
+    # =========================
+    # INSERT
+    # =========================
     inserted = 0
+    skipped = 0
 
-    for appid, game in all_games.items():
+    for appid, game in games.items():
+
         if inserted >= max_games:
             break
 
         try:
             appid = int(appid)
         except:
+            skipped += 1
             continue
 
-        if not is_real_game(game):
+        if not is_valid_game(game):
+            skipped += 1
             continue
 
         exists = db.query(Game).filter(Game.appid == appid).first()
-
         if exists:
+            skipped += 1
             continue
 
         db.add(Game(
@@ -98,4 +117,15 @@ def run_collector(max_games=30000, pages_per_genre=3):
     db.commit()
     db.close()
 
+    print("🏁 COLLECTOR DONE")
+    print(f"📦 INSERTED: {inserted}")
+    print(f"❌ SKIPPED: {skipped}")
+
     return inserted
+
+
+# =========================
+# ENTRY POINT
+# =========================
+if __name__ == "__main__":
+    run_collector()

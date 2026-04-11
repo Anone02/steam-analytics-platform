@@ -13,28 +13,21 @@ def safe_int(v):
         return 0
 
 
-def run_enrichment(limit=500):
+def run_enrich_test(limit=5):
     db = SessionLocal()
 
     games = db.query(Game).limit(limit).all()
 
-    print("🎮 ENRICH START | LIMIT:", limit)
-    print("📦 GAMES FOUND:", len(games))
+    print("🧪 TEST ENRICH START")
+    print("🎮 GAMES:", len(games))
 
     inserted = 0
-    failed = 0
 
     for g in games:
 
+        print(f"\n👉 TEST GAME {g.appid} | {g.name}")
+
         try:
-            print(f"\n👉 PROCESS {g.appid} | {g.name}")
-
-            # skip duplicate
-            exists = db.query(GameStats).filter(GameStats.appid == g.appid).first()
-            if exists:
-                print("⏭️ SKIP EXISTS")
-                continue
-
             res = requests.get(
                 STEAMSPY,
                 params={
@@ -44,16 +37,17 @@ def run_enrichment(limit=500):
                 timeout=10
             )
 
+            print("📡 STATUS:", res.status_code)
+
             data = res.json()
 
-            if not isinstance(data, dict):
-                print("❌ INVALID DATA")
-                failed += 1
-                continue
+            print("📦 RESPONSE KEYS:", list(data.keys())[:5])
 
             positive = safe_int(data.get("positive"))
             negative = safe_int(data.get("negative"))
+
             total = positive + negative
+            ratio = (positive / total) if total > 0 else 0
 
             stats = GameStats(
                 appid=g.appid,
@@ -65,36 +59,30 @@ def run_enrichment(limit=500):
                 positive=positive,
                 negative=negative,
                 review_count=total,
-                positive_ratio=(positive / total) if total > 0 else 0
+                positive_ratio=ratio
             )
 
             db.add(stats)
-            inserted += 1
+            db.flush()  # 🔥 langsung test insert
 
-            # 🔥 SAFE BATCH COMMIT
-            if inserted % 25 == 0:
-                print(f"💾 BATCH COMMIT | inserted={inserted}")
-                db.commit()
+            print("💾 INSERT OK:", g.appid)
+
+            inserted += 1
 
         except Exception as e:
             print("💥 ERROR:", e)
-            failed += 1
-            db.rollback()
-            continue
 
+    print("\n💾 COMMITTING...")
     db.commit()
 
     total = db.query(GameStats).count()
+    print("📊 TOTAL GAME_STATS:", total)
 
     db.close()
 
-    print("\n🏁 ENRICH DONE")
+    print("\n🏁 TEST DONE")
     print("✅ INSERTED:", inserted)
-    print("❌ FAILED:", failed)
-    print("📊 TOTAL DB:", total)
-
-    return inserted
 
 
 if __name__ == "__main__":
-    run_enrichment(100)
+    run_enrich_test(5)

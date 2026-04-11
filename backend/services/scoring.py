@@ -3,46 +3,56 @@ from models.game_stats import GameStats
 from models.game_scores import GameScores
 
 
-def score(stats):
-    hidden = (stats.positive_ratio or 0) * 100 - (stats.negative or 0) / 1000
-    value = (stats.avg_playtime or 1) / max(stats.price or 1, 1)
-    toxic = (stats.negative or 0) / max(stats.positive or 1, 1)
-    pop = stats.positive or 0
+def run_scoring(limit=500):
 
-    return hidden, value, toxic, pop
-
-
-def run_scoring(limit=200):
     db = SessionLocal()
+
+    print("📊 SCORING START | LIMIT:", limit)
 
     stats = db.query(GameStats).limit(limit).all()
 
-    count = 0
+    print("📦 GAMESTATS FOUND:", len(stats))
+
+    inserted = 0
 
     for s in stats:
-        h, v, t, p = score(s)
 
-        existing = db.query(GameScores).filter(GameScores.appid == s.appid).first()
+        print(f"👉 SCORING {s.appid} | {s.name}")
 
-        if existing:
-            existing.name = s.name
-            existing.hidden_gem_score = h
-            existing.value_score = v
-            existing.toxic_score = t
-            existing.popularity_score = p
-        else:
-            db.add(GameScores(
-                appid=s.appid,
-                name=s.name,
-                hidden_gem_score=h,
-                value_score=v,
-                toxic_score=t,
-                popularity_score=p
-            ))
+        # SAFE COMPUTE (NO NULL DEPENDENCY)
+        positive = s.positive or 0
+        negative = s.negative or 0
+        review_count = positive + negative
 
-        count += 1
+        exists = db.query(GameScores).filter_by(appid=s.appid).first()
+
+        if exists:
+            print("⏭️ ALREADY EXISTS")
+            continue
+
+        hidden = (s.positive_ratio or 0) * 100
+        value = review_count / 1000
+        toxic = negative
+        popularity = review_count
+
+        db.add(GameScores(
+            appid=s.appid,
+            name=s.name,
+            hidden_gem_score=hidden,
+            value_score=value,
+            toxic_score=toxic,
+            popularity_score=popularity
+        ))
+
+        inserted += 1
+
+        if inserted % 25 == 0:
+            db.commit()
+            print("💾 BATCH COMMIT")
 
     db.commit()
     db.close()
 
-    return count
+    print("🏁 SCORING DONE | inserted =", inserted)
+
+    return inserted
