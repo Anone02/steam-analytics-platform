@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: steam_db
+    restart: always
+    environment:
+      POSTGRES_USER: steam
+      POSTGRES_PASSWORD: steam123
+      POSTGRES_DB: steamdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    container_name: steam_adminer
+    restart: always
+    ports:
+      - "8081:8080"
+
+volumes:
+  pgdata:
