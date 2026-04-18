@@ -170,7 +170,7 @@ export function DetailPage() {
               </span>
             </div>
             <h3 className="font-semibold dark:text-green-200 text-green-800">Value Score</h3>
-            <p className="text-sm dark:text-green-400/70 text-green-700/70">Price: ${game.price}</p>
+            <p className="text-sm dark:text-green-400/70 text-green-700/70">Value Games</p>
           </Card>
 
           <Card className="p-6 dark:bg-gradient-to-br dark:from-red-900/40 dark:to-red-800/20 bg-gradient-to-br from-red-100 to-red-50 backdrop-blur-sm border-2 dark:border-red-500/50 border-red-600/50">
@@ -192,7 +192,7 @@ export function DetailPage() {
               </span>
             </div>
             <h3 className="font-semibold dark:text-blue-200 text-blue-800">Popularity</h3>
-            <p className="text-sm dark:text-blue-400/70 text-blue-700/70">{(game.players / 1000).toFixed(1)}K players</p>
+            <p className="text-sm dark:text-blue-400/70 text-blue-700/70">Popularity Games</p>
           </Card>
         </div>
 
