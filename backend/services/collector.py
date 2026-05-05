@@ -58,7 +58,7 @@ def is_valid_game(game):
 # =========================
 # COLLECTOR
 # =========================
-def run_collector(max_games=30000, pages_per_genre=3):
+def run_collector(max_games=50000, pages_per_genre=50):
 
     print("🚀 COLLECTOR START")
 
@@ -71,7 +71,7 @@ def run_collector(max_games=30000, pages_per_genre=3):
     games.update(fetch_top())
 
     # 2. GENRES
-    genres = ["action", "rpg", "indie", "simulation", "strategy"]
+    genres = ["action", "rpg", "indie", "simulation", "strategy", "adventure", "casual", "horror", "sports", "racing"]
 
     for g in genres:
         print(f"📊 fetching {g}...")
